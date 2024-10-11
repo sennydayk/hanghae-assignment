@@ -1,96 +1,99 @@
-import { CartItem } from '@/types/cartType';
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { create } from "zustand";
+import { CartItem } from "@/types/cartType";
 import {
   calculateTotal,
   getCartFromLocalStorage,
   resetCartAtLocalStorage,
   setCartToLocalStorage,
-} from './cartUtils';
+} from "./cartUtils";
 
 interface CartState {
   cart: CartItem[];
   totalCount: number;
   totalPrice: number;
+  initCart: (userId: string) => void;
+  resetCart: (userId: string) => void;
+  addCartItem: (item: CartItem, userId: string, count: number) => void;
+  removeCartItem: (itemId: string, userId: string) => void;
+  changeCartItemCount: (itemId: string, count: number, userId: string) => void;
 }
 
-const initialState: CartState = {
+const useCartStore = create<CartState>((set, get) => ({
   cart: [],
   totalCount: 0,
   totalPrice: 0,
-};
 
-const cartSlice = createSlice({
-  name: 'cart',
-  initialState,
-  reducers: {
-    initCart: (state, action: PayloadAction<string>) => {
-      const userId = action.payload;
-      if (!userId) return;
-      const prevCartItems = getCartFromLocalStorage(userId);
-      const total = calculateTotal(prevCartItems);
-      state.cart = prevCartItems;
-      state.totalCount = total.totalCount;
-      state.totalPrice = total.totalPrice;
-    },
-    resetCart: (state, action: PayloadAction<string>) => {
-      const userId = action.payload;
-      resetCartAtLocalStorage(userId);
-      state.cart = [];
-      state.totalCount = 0;
-      state.totalPrice = 0;
-    },
-    addCartItem: (
-      state,
-      action: PayloadAction<{ item: CartItem; userId: string; count: number }>
-    ) => {
-      const { item, userId, count } = action.payload;
+  initCart: (userId: string) => {
+    if (!userId) return;
+    const prevCartItems = getCartFromLocalStorage(userId);
+    const total = calculateTotal(prevCartItems);
+    set({
+      cart: prevCartItems,
+      totalCount: total.totalCount,
+      totalPrice: total.totalPrice,
+    });
+  },
+
+  resetCart: (userId: string) => {
+    resetCartAtLocalStorage(userId);
+    set({
+      cart: [],
+      totalCount: 0,
+      totalPrice: 0,
+    });
+  },
+
+  addCartItem: (item: CartItem, userId: string, count: number) => {
+    set((state) => {
       const existingItemIndex = state.cart.findIndex(
         (cartItem) => cartItem.id === item.id
       );
+      let updatedCart = [...state.cart];
       if (existingItemIndex !== -1) {
-        state.cart[existingItemIndex].count += count;
+        updatedCart[existingItemIndex].count += count;
       } else {
-        state.cart.push({ ...item, count });
+        updatedCart.push({ ...item, count });
       }
-      const total = calculateTotal(state.cart);
-      state.totalCount = total.totalCount;
-      state.totalPrice = total.totalPrice;
-      setCartToLocalStorage(state.cart, userId);
-    },
-    removeCartItem: (
-      state,
-      action: PayloadAction<{ itemId: string; userId: string }>
-    ) => {
-      const { itemId, userId } = action.payload;
-      state.cart = state.cart.filter((item) => item.id !== itemId);
-      const total = calculateTotal(state.cart);
-      state.totalCount = total.totalCount;
-      state.totalPrice = total.totalPrice;
-      setCartToLocalStorage(state.cart, userId);
-    },
-    changeCartItemCount: (
-      state,
-      action: PayloadAction<{ itemId: string; count: number; userId: string }>
-    ) => {
-      const { itemId, count, userId } = action.payload;
+      const total = calculateTotal(updatedCart);
+      setCartToLocalStorage(updatedCart, userId);
+      return {
+        cart: updatedCart,
+        totalCount: total.totalCount,
+        totalPrice: total.totalPrice,
+      };
+    });
+  },
+
+  removeCartItem: (itemId: string, userId: string) => {
+    set((state) => {
+      const updatedCart = state.cart.filter((item) => item.id !== itemId);
+      const total = calculateTotal(updatedCart);
+      setCartToLocalStorage(updatedCart, userId);
+      return {
+        cart: updatedCart,
+        totalCount: total.totalCount,
+        totalPrice: total.totalPrice,
+      };
+    });
+  },
+
+  changeCartItemCount: (itemId: string, count: number, userId: string) => {
+    set((state) => {
       const itemIndex = state.cart.findIndex((item) => item.id === itemId);
       if (itemIndex !== -1) {
-        state.cart[itemIndex].count = count;
-        const total = calculateTotal(state.cart);
-        state.totalCount = total.totalCount;
-        state.totalPrice = total.totalPrice;
-        setCartToLocalStorage(state.cart, userId);
+        let updatedCart = [...state.cart];
+        updatedCart[itemIndex].count = count;
+        const total = calculateTotal(updatedCart);
+        setCartToLocalStorage(updatedCart, userId);
+        return {
+          cart: updatedCart,
+          totalCount: total.totalCount,
+          totalPrice: total.totalPrice,
+        };
       }
-    },
+      return state;
+    });
   },
-});
+}));
 
-export const {
-  initCart,
-  resetCart,
-  addCartItem,
-  removeCartItem,
-  changeCartItemCount,
-} = cartSlice.actions;
-
-export default cartSlice.reducer;
+export default useCartStore;

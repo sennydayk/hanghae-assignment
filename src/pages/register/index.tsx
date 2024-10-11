@@ -1,16 +1,15 @@
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Lock, Mail, User } from 'lucide-react';
-import React, { ChangeEvent, FormEvent, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-
-import { pageRoutes } from '@/apiRoutes';
-import { EMAIL_PATTERN } from '@/constants';
-import { Layout, authStatusType } from '@/pages/common/components/Layout';
-import { RootState } from '@/store';
-import { registerUser } from '@/store/auth/authActions';
-import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Lock, Mail, User } from "lucide-react";
+import React, { ChangeEvent, FormEvent, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useMutation } from "@tanstack/react-query";
+import { pageRoutes } from "@/apiRoutes";
+import { EMAIL_PATTERN } from "@/constants";
+import { Layout, authStatusType } from "@/pages/common/components/Layout";
+import useToastStore from "@/store/toast/toastSlice";
+import { registerUser } from "@/store/auth/authActions";
 
 interface FormErrors {
   name?: string;
@@ -20,61 +19,55 @@ interface FormErrors {
 
 export const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
-  const dispatch = useAppDispatch();
-  const { registerStatus, registerError } = useAppSelector(
-    (state: RootState) => state.auth
-  );
-
-  const [name, setName] = useState<string>('');
-  const [email, setEmail] = useState<string>('');
-  const [password, setPassword] = useState<string>('');
+  const showToast = useToastStore((state) => state.showToast);
+  const [name, setName] = useState<string>("");
+  const [email, setEmail] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
   const [errors, setErrors] = useState<FormErrors>({});
-
-  useEffect(() => {
-    if (registerStatus === 'succeeded') {
-      navigate(pageRoutes.login);
-    }
-  }, [registerStatus, navigate]);
 
   const validateForm = (): boolean => {
     let formErrors: FormErrors = {};
-    if (!name) formErrors.name = '이름을 입력하세요';
+    if (!name) formErrors.name = "이름을 입력하세요";
     if (!email) {
-      formErrors.email = '이메일을 입력하세요';
+      formErrors.email = "이메일을 입력하세요";
     } else if (!EMAIL_PATTERN.test(email)) {
-      formErrors.email = '이메일 양식이 올바르지 않습니다';
+      formErrors.email = "이메일 양식이 올바르지 않습니다";
     }
-    if (!password) formErrors.password = '비밀번호를 입력하세요';
+    if (!password) formErrors.password = "비밀번호를 입력하세요";
     setErrors(formErrors);
     return Object.keys(formErrors).length === 0;
   };
 
-  const handleRegister = async (e: FormEvent<HTMLFormElement>) => {
+  const mutation = useMutation({
+    mutationFn: (userData: { email: string; password: string; name: string }) =>
+      registerUser(userData),
+    onSuccess: () => {
+      showToast("회원가입이 완료되었습니다.", "success");
+      navigate(pageRoutes.login);
+    },
+    onError: (error: any) => {
+      console.error("회원가입 중 오류가 발생했습니다.", error);
+      showToast("회원가입에 실패했습니다.", "error");
+    },
+  });
+
+  const handleRegister = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (validateForm()) {
-      try {
-        await dispatch(registerUser({ email, password, name })).unwrap();
-        console.log('가입 성공!');
-        navigate(pageRoutes.login);
-      } catch (error) {
-        console.error(
-          '회원가입 중 오류가 발생했습니다. 다시 시도해 주세요.',
-          error
-        );
-      }
+      mutation.mutate({ email, password, name });
     }
   };
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
     switch (id) {
-      case 'name':
+      case "name":
         setName(value);
         break;
-      case 'email':
+      case "email":
         setEmail(value);
         break;
-      case 'password':
+      case "password":
         setPassword(value);
         break;
     }
@@ -100,6 +93,7 @@ export const RegisterPage: React.FC = () => {
               <p className="text-sm text-red-500">{errors.name}</p>
             )}
           </div>
+
           <div className="space-y-2">
             <Label htmlFor="email">이메일</Label>
             <div className="relative">
@@ -116,6 +110,7 @@ export const RegisterPage: React.FC = () => {
               <p className="text-sm text-red-500">{errors.email}</p>
             )}
           </div>
+
           <div className="space-y-2">
             <Label htmlFor="password">비밀번호</Label>
             <div className="relative">
@@ -132,15 +127,19 @@ export const RegisterPage: React.FC = () => {
               <p className="text-sm text-red-500">{errors.password}</p>
             )}
           </div>
+
           <Button
             type="submit"
             className="w-full"
-            disabled={registerStatus === 'loading'}
+            disabled={mutation.isPending}
           >
-            {registerStatus === 'loading' ? '가입 중...' : '회원가입'}
+            {mutation.isPending ? "가입 중..." : "회원가입"}
           </Button>
-          {registerError && (
-            <p className="text-sm text-red-500">{registerError}</p>
+
+          {mutation.isError && (
+            <p className="text-sm text-red-500">
+              {mutation.error?.message || "회원가입에 실패했습니다."}
+            </p>
           )}
         </form>
       </div>

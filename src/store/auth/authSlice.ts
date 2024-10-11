@@ -1,60 +1,53 @@
-import { IUser } from '@/types/authType';
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { registerUser } from './authActions';
+import { create } from "zustand";
+import Cookies from "js-cookie";
+import { IUser } from "@/types/authType";
+import { auth } from "@/firebase";
 
 interface AuthState {
   isLogin: boolean;
   user: IUser | null;
-  registerStatus: 'idle' | 'loading' | 'succeeded' | 'failed';
-  registerError: string | null;
+  setIsLogin: (isLogin: boolean) => void;
+  setUser: (user: IUser) => void;
+  logout: () => void;
 }
 
-const initialState: AuthState = {
+export const useAuthStore = create<AuthState>((set) => ({
   isLogin: false,
   user: null,
-  registerStatus: 'idle',
-  registerError: null,
-};
-
-export const authSlice = createSlice({
-  name: 'auth',
-  initialState,
-  reducers: {
-    setIsLogin: (state, action: PayloadAction<boolean>) => {
-      state.isLogin = action.payload;
-    },
-    setUser: (state, action: PayloadAction<IUser>) => {
-      state.user = action.payload;
-      state.isLogin = true;
-    },
-    logout: (state) => {
-      state.isLogin = false;
-      state.user = null;
-    },
+  setIsLogin: (isLogin: boolean) => set({ isLogin }),
+  setUser: (user: IUser) =>
+    set(() => ({
+      user,
+      isLogin: true,
+    })),
+  logout: () => {
+    Cookies.remove("accessToken");
+    set(() => ({
+      isLogin: false,
+      user: null,
+    }));
   },
-  extraReducers: (builder) => {
-    builder
-      .addCase(registerUser.pending, (state) => {
-        state.registerStatus = 'loading';
-      })
-      .addCase(
-        registerUser.fulfilled,
-        (state, action: PayloadAction<IUser>) => {
-          state.registerStatus = 'succeeded';
-          state.user = action.payload;
-          state.isLogin = true;
-        }
-      )
-      .addCase(
-        registerUser.rejected,
-        (state, action: PayloadAction<string | undefined>) => {
-          state.registerStatus = 'failed';
-          state.registerError = action.payload || 'Registration failed';
-        }
-      );
-  },
-});
+}));
 
-export const { setIsLogin, setUser, logout } = authSlice.actions;
-
-export default authSlice.reducer;
+const token = Cookies.get("accessToken");
+if (token) {
+  auth.currentUser
+    ?.getIdToken(true)
+    .then(() => {
+      const user = auth.currentUser;
+      if (user) {
+        useAuthStore.setState({
+          isLogin: true,
+          user: {
+            uid: user.uid,
+            email: user.email ?? "",
+            displayName: user.displayName ?? "",
+          },
+        });
+      }
+    })
+    .catch(() => {
+      useAuthStore.setState({ isLogin: false, user: null });
+      Cookies.remove("accessToken");
+    });
+}

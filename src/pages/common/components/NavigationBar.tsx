@@ -1,40 +1,42 @@
-import Cookies from 'js-cookie';
-import { Suspense, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-
-import { pageRoutes } from '@/apiRoutes';
-import { ApiErrorBoundary } from '@/pages/common/components/ApiErrorBoundary';
-import { logout } from '@/store/auth/authSlice';
-import { initCart } from '@/store/cart/cartSlice';
-
-import { Skeleton } from '@/components/ui/skeleton';
-import { useModal } from '@/hooks/useModal';
-import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { CartButton } from './CartButton';
-import { ConfirmModal } from './ConfirmModal';
-import { LoginButton } from './LoginButton';
-import { LogoutButton } from './LogoutButton';
+import Cookies from "js-cookie";
+import { Suspense, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { pageRoutes } from "@/apiRoutes";
+import { ApiErrorBoundary } from "@/pages/common/components/ApiErrorBoundary";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useModal } from "@/hooks/useModal";
+import { CartButton } from "./CartButton";
+import { ConfirmModal } from "./ConfirmModal";
+import { LoginButton } from "./LoginButton";
+import { LogoutButton } from "./LogoutButton";
+import { useAuthStore } from "@/store/auth/authSlice";
+import useCartStore from "@/store/cart/cartSlice";
+import { stat } from "fs";
 
 export const NavigationBar = () => {
   const navigate = useNavigate();
-  const dispatch = useAppDispatch();
+
+  // Zustand 상태와 함수 가져오기
   const { isOpen, openModal, closeModal } = useModal();
-  const { isLogin, user } = useAppSelector((state) => state.auth);
-  const { cart } = useAppSelector((state) => state.cart);
+  const isLogin = useAuthStore((state) => state.isLogin);
+  const user = useAuthStore((state) => state.user);
+  const logout = useAuthStore((state) => state.logout);
+  const cart = useCartStore((state) => state.cart);
+  const initCart = useCartStore((state) => state.initCart);
 
   useEffect(() => {
     if (isLogin && user && cart.length === 0) {
-      dispatch(initCart(user.uid));
+      initCart(user.uid);
     }
-  }, [isLogin, user, dispatch, cart.length]);
+  }, [isLogin, user, cart.length, initCart]);
 
   const handleLogout = () => {
     openModal();
   };
 
   const handleConfirmLogout = () => {
-    dispatch(logout());
-    Cookies.remove('accessToken');
+    logout(); // Zustand에서 바로 호출
+    Cookies.remove("accessToken");
     closeModal();
   };
 

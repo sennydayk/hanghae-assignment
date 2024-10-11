@@ -1,18 +1,15 @@
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import Cookies from 'js-cookie';
-import { Lock, Mail } from 'lucide-react';
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-
-import { pageRoutes } from '@/apiRoutes';
-import { EMAIL_PATTERN } from '@/constants';
-import { auth } from '@/firebase';
-import { Layout, authStatusType } from '@/pages/common/components/Layout';
-import { setIsLogin, setUser } from '@/store/auth/authSlice';
-import { useAppDispatch } from '@/store/hooks';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Lock, Mail } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { pageRoutes } from "@/apiRoutes";
+import { EMAIL_PATTERN } from "@/constants";
+import { Layout, authStatusType } from "@/pages/common/components/Layout";
+import { useLoginUser } from "@/hooks/useLoginUser";
+import useToastStore from "@/store/toast/toastSlice";
+import Cookies from "js-cookie";
 
 interface FormErrors {
   email?: string;
@@ -22,25 +19,34 @@ interface FormErrors {
 
 export const LoginPage = () => {
   const navigate = useNavigate();
-  const dispatch = useAppDispatch();
-
-  const [email, setEmail] = useState<string>('');
-  const [password, setPassword] = useState<string>('');
+  const [email, setEmail] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
   const [errors, setErrors] = useState<FormErrors>({});
+  const showToast = useToastStore((state) => state.showToast);
+
+  const { mutateAsync: loginUser, isPending, isError, error } = useLoginUser();
+
+  // 토큰 확인
+  useEffect(() => {
+    const token = Cookies.get("accessToken");
+    if (token) {
+      navigate(pageRoutes.main);
+    }
+  }, [navigate]);
 
   const handleClickRegister = () => {
     navigate(pageRoutes.register);
   };
 
-  const validateForm = () => {
+  const validateForm = (): boolean => {
     let formErrors: FormErrors = {};
     if (!email) {
-      formErrors.email = '이메일을 입력하세요';
+      formErrors.email = "이메일을 입력하세요";
     } else if (!EMAIL_PATTERN.test(email)) {
-      formErrors.email = '이메일 양식이 올바르지 않습니다';
+      formErrors.email = "이메일 양식이 올바르지 않습니다";
     }
     if (!password) {
-      formErrors.password = '비밀번호를 입력하세요';
+      formErrors.password = "비밀번호를 입력하세요";
     }
     setErrors(formErrors);
     return Object.keys(formErrors).length === 0;
@@ -52,35 +58,14 @@ export const LoginPage = () => {
     e.preventDefault();
     if (validateForm()) {
       try {
-        const userCredential = await signInWithEmailAndPassword(
-          auth,
-          email,
-          password
-        );
-        const user = userCredential.user;
-        const token = await user.getIdToken();
-
-        Cookies.set('accessToken', token, { expires: 7 });
-
-        dispatch(setIsLogin(true));
-        if (user) {
-          dispatch(
-            setUser({
-              uid: user.uid,
-              email: user.email ?? '',
-              displayName: user.displayName ?? '',
-            })
-          );
-        }
-
+        await loginUser({ email, password });
+        showToast("로그인이 완료되었습니다.", "success");
+        console.log("로그인 완료");
         navigate(pageRoutes.main);
-      } catch (error) {
-        console.error(
-          '로그인에 실패했습니다. 이메일과 비밀번호를 확인해주세요.',
-          error
-        );
+      } catch (err) {
+        console.error("로그인에 실패했습니다.", err);
         setErrors({
-          form: '로그인에 실패했습니다. 이메일과 비밀번호를 확인해주세요.',
+          form: "로그인에 실패했습니다. 이메일과 비밀번호를 확인해주세요.",
         });
       }
     }
@@ -123,9 +108,21 @@ export const LoginPage = () => {
             )}
           </div>
           {errors.form && <p className="text-sm text-red-500">{errors.form}</p>}
-          <Button type="submit" className="w-full" aria-label="로그인">
-            로그인
+          <Button
+            type="submit"
+            className="w-full"
+            aria-label="로그인"
+            disabled={isPending}
+          >
+            {isPending ? "로그인 중..." : "로그인"}
           </Button>
+          {isError && (
+            <p className="text-sm text-red-500">
+              {error
+                ? (error as Error).message
+                : "로그인 중 오류가 발생했습니다."}
+            </p>
+          )}
         </form>
         <Button
           variant="outline"

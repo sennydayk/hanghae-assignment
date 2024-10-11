@@ -1,72 +1,69 @@
-import { IProduct } from '@/api/dtos/productDTO';
-import { ProductSliceState } from '@/types/productType';
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { addProduct, loadProducts } from './productsActions';
+import { create } from "zustand";
+import { IProduct, NewProductDTO } from "@/api/dtos/productDTO";
+import { addProductAPI, fetchProducts } from "@/api/product";
+import { ProductFilter } from "@/types/productType";
 
-const initialState: ProductSliceState = {
+interface ProductState {
+  items: IProduct[];
+  hasNextPage: boolean;
+  isLoading: boolean;
+  error: string | null;
+  totalCount: number;
+
+  loadProducts: (
+    filter: ProductFilter,
+    pageSize: number,
+    page: number,
+    isInitial: boolean
+  ) => Promise<void>;
+  addProduct: (productData: NewProductDTO) => Promise<void>;
+}
+
+const useProductStore = create<ProductState>((set) => ({
   items: [],
   hasNextPage: true,
   isLoading: false,
   error: null,
   totalCount: 0,
-};
 
-const productsSlice = createSlice({
-  name: 'products',
-  initialState,
-  reducers: {},
-  extraReducers: (builder) => {
-    builder
-      .addCase(loadProducts.pending, (state) => {
-        state.isLoading = true;
-      })
-      .addCase(
-        loadProducts.fulfilled,
-        (
-          state,
-          action: PayloadAction<{
-            products: IProduct[];
-            hasNextPage: boolean;
-            totalCount: number;
-            isInitial: boolean;
-          }>
-        ) => {
-          const { products, hasNextPage, totalCount, isInitial } =
-            action.payload;
-          state.items = isInitial ? products : [...state.items, ...products];
-          state.hasNextPage = hasNextPage;
-          state.totalCount = totalCount;
-          state.isLoading = false;
-          state.error = null;
-        }
-      )
-      .addCase(
-        loadProducts.rejected,
-        (state, action: PayloadAction<string | undefined>) => {
-          state.isLoading = false;
-          state.error = action.payload || 'Failed to load products';
-        }
-      )
-      .addCase(addProduct.pending, (state) => {
-        state.isLoading = true;
-      })
-      .addCase(
-        addProduct.fulfilled,
-        (state, action: PayloadAction<IProduct>) => {
-          state.items.unshift(action.payload);
-          state.totalCount += 1;
-          state.isLoading = false;
-          state.error = null;
-        }
-      )
-      .addCase(
-        addProduct.rejected,
-        (state, action: PayloadAction<string | undefined>) => {
-          state.isLoading = false;
-          state.error = action.payload || '상품 등록에 실패하였습니다.';
-        }
-      );
+  loadProducts: async (filter, pageSize, page, isInitial) => {
+    set({ isLoading: true });
+    try {
+      const result = await fetchProducts(filter, pageSize, page);
+      set((state) => ({
+        items: isInitial
+          ? result.products
+          : [...state.items, ...result.products],
+        hasNextPage: result.hasNextPage,
+        totalCount: result.totalCount,
+        isLoading: false,
+        error: null,
+      }));
+    } catch (error: any) {
+      set({
+        isLoading: false,
+        error: error.message || "Failed to load products",
+      });
+    }
   },
-});
 
-export default productsSlice.reducer;
+  addProduct: async (productData) => {
+    set({ isLoading: true });
+    try {
+      const newProduct = await addProductAPI(productData);
+      set((state) => ({
+        items: [newProduct, ...state.items],
+        totalCount: state.totalCount + 1,
+        isLoading: false,
+        error: null,
+      }));
+    } catch (error: any) {
+      set({
+        isLoading: false,
+        error: error.message || "상품 등록에 실패하였습니다.",
+      });
+    }
+  },
+}));
+
+export default useProductStore;

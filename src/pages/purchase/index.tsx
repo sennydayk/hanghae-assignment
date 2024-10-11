@@ -72,7 +72,7 @@ export const Purchase: React.FC = () => {
 
     const purchaseData = {
       ...formData,
-      totalAmount: 0, // This should be calculated based on the cart items
+      totalAmount: 0,
       paymentMethod: formData.payment,
       shippingAddress: formData.address,
     };

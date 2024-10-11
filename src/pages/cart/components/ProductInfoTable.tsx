@@ -12,7 +12,6 @@ import { IUser } from "@/types/authType";
 import { CartItem } from "@/types/cartType";
 
 export const ProductInfoTable = () => {
-  // Zustand에서 cart와 user 상태 가져오기
   const cart: CartItem[] = useCartStore((state) => state.cart);
   const user: IUser | null = useAuthStore((state) => state.user);
 

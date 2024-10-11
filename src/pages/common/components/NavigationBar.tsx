@@ -16,7 +16,6 @@ import { stat } from "fs";
 export const NavigationBar = () => {
   const navigate = useNavigate();
 
-  // Zustand 상태와 함수 가져오기
   const { isOpen, openModal, closeModal } = useModal();
   const isLogin = useAuthStore((state) => state.isLogin);
   const user = useAuthStore((state) => state.user);
@@ -35,7 +34,7 @@ export const NavigationBar = () => {
   };
 
   const handleConfirmLogout = () => {
-    logout(); // Zustand에서 바로 호출
+    logout();
     Cookies.remove("accessToken");
     closeModal();
   };

@@ -28,7 +28,7 @@ export const ProductFilter = () => {
 
   const handleChangeInput = debounce(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      setTitle(e.target.value); // Zustand의 setTitle 함수 호출
+      setTitle(e.target.value);
     },
     300
   );
@@ -39,7 +39,7 @@ export const ProductFilter = () => {
     debounce((e: React.ChangeEvent<HTMLInputElement>) => {
       const value = e.target.value;
       if (value === "") {
-        actionCreator(-1); // Zustand 액션 바로 호출
+        actionCreator(-1);
       } else {
         const numericValue = Math.max(0, parseInt(value, 10));
         if (!isNaN(numericValue)) {
@@ -53,7 +53,7 @@ export const ProductFilter = () => {
 
   const handleChangeCategory = (value: string) => {
     if (value !== undefined) {
-      setCategoryId(value); // Zustand의 setCategoryId 함수 호출
+      setCategoryId(value);
     } else {
       console.error("카테고리가 설정되지 않았습니다.");
     }
@@ -68,7 +68,7 @@ export const ProductFilter = () => {
         <ApiErrorBoundary>
           <Suspense fallback={<Loader2 className="h-24 w-24 animate-spin" />}>
             <CategoryRadioGroup
-              categoryId={categoryId} // Zustand에서 가져온 categoryId 사용
+              categoryId={categoryId}
               onChangeCategory={handleChangeCategory}
             />
           </Suspense>

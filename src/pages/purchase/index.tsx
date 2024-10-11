@@ -1,27 +1,17 @@
-import { Loader2 } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-
-import { makePurchase } from '@/api/purchase';
-import { pageRoutes } from '@/apiRoutes';
-
-import { PHONE_PATTERN } from '@/constants';
-import { Layout, authStatusType } from '@/pages/common/components/Layout';
-import { ItemList } from '@/pages/purchase/components/ItemList';
-import { Payment } from '@/pages/purchase/components/Payment';
-import { ShippingInformationForm } from '@/pages/purchase/components/ShippingInformationForm';
-import { selectUser } from '@/store/auth/authSelectors';
-import { selectCart } from '@/store/cart/cartSelectors';
-import { resetCart } from '@/store/cart/cartSlice';
-import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import {
-  purchaseFailure,
-  purchaseStart,
-  purchaseSuccess,
-} from '@/store/purchase/purchaseSlice';
+import { Loader2 } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { pageRoutes } from "@/apiRoutes";
+import { PHONE_PATTERN } from "@/constants";
+import { Layout, authStatusType } from "@/pages/common/components/Layout";
+import { ItemList } from "@/pages/purchase/components/ItemList";
+import { Payment } from "@/pages/purchase/components/Payment";
+import { ShippingInformationForm } from "@/pages/purchase/components/ShippingInformationForm";
+import { useAuthStore } from "@/store/auth/authSlice";
+import useToastStore from "@/store/toast/toastSlice";
+import { usePurchaseMutation } from "@/hooks/usePurchase";
 
 export interface FormData {
   name: string;
@@ -36,30 +26,27 @@ export interface FormErrors {
 }
 
 export const Purchase: React.FC = () => {
-  const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const user = useAppSelector(selectUser);
-  const cart = useAppSelector(selectCart);
-  const { isLoading } = useAppSelector((state) => state.purchase);
+  const user = useAuthStore((state) => state.user);
+  const showToast = useToastStore((state) => state.showToast);
 
   const [formData, setFormData] = useState<FormData>({
-    name: user?.displayName ?? '',
-    address: '',
-    phone: '',
-    requests: '',
-    payment: 'accountTransfer',
+    name: user?.displayName ?? "",
+    address: "",
+    phone: "",
+    requests: "",
+    payment: "accountTransfer",
   });
 
-  const [errors, setErrors] = useState<FormErrors>({
-    phone: '',
-  });
-
+  const [errors, setErrors] = useState<FormErrors>({ phone: "" });
   const [isFormValid, setIsFormValid] = useState<boolean>(false);
+
+  const { mutate: purchase, isPending, isError, error } = usePurchaseMutation();
 
   useEffect(() => {
     const { address, phone } = formData;
     const isPhoneValid = PHONE_PATTERN.test(phone);
-    setIsFormValid(address.trim() !== '' && isPhoneValid);
+    setIsFormValid(address.trim() !== "" && isPhoneValid);
   }, [formData]);
 
   const handleInputChange = (
@@ -67,15 +54,14 @@ export const Purchase: React.FC = () => {
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-
-    if (name === 'phone') {
-      if (!PHONE_PATTERN.test(value) && value !== '') {
+    if (name === "phone") {
+      if (!PHONE_PATTERN.test(value) && value !== "") {
         setErrors((prev) => ({
           ...prev,
-          phone: '-를 포함한 휴대폰 번호만 가능합니다',
+          phone: "-를 포함한 휴대폰 번호만 가능합니다",
         }));
       } else {
-        setErrors((prev) => ({ ...prev, phone: '' }));
+        setErrors((prev) => ({ ...prev, phone: "" }));
       }
     }
   };
@@ -84,7 +70,6 @@ export const Purchase: React.FC = () => {
     e.preventDefault();
     if (!isFormValid || !user) return;
 
-    dispatch(purchaseStart());
     const purchaseData = {
       ...formData,
       totalAmount: 0,
@@ -92,26 +77,18 @@ export const Purchase: React.FC = () => {
       shippingAddress: formData.address,
     };
 
-    try {
-      await makePurchase(purchaseData, user.uid, cart);
-      dispatch(purchaseSuccess());
-      if (user) {
-        dispatch(resetCart(user.uid));
+    purchase(
+      { purchaseData, userId: user.uid },
+      {
+        onSuccess: () => {
+          showToast("구매가 완료되었습니다.", "success");
+          navigate(pageRoutes.main);
+        },
+        onError: (error) => {
+          showToast(`구매에 실패했습니다: ${error.message}`, "error");
+        },
       }
-      console.log('구매 성공!');
-      navigate(pageRoutes.main);
-    } catch (err) {
-      if (err instanceof Error) {
-        dispatch(purchaseFailure(err.message));
-        console.error(
-          '잠시 문제가 발생했습니다! 다시 시도해 주세요.',
-          err.message
-        );
-      } else {
-        dispatch(purchaseFailure('알 수 없는 오류가 발생했습니다.'));
-        console.error('잠시 문제가 발생했습니다! 다시 시도해 주세요.');
-      }
-    }
+    );
   };
 
   return (
@@ -136,18 +113,19 @@ export const Purchase: React.FC = () => {
               <Button
                 type="submit"
                 size="lg"
-                disabled={isLoading || !isFormValid}
+                disabled={isPending || !isFormValid}
               >
-                {isLoading ? (
+                {isPending ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     처리 중...
                   </>
                 ) : (
-                  '구매하기'
+                  "구매하기"
                 )}
               </Button>
             </div>
+            {isError && <p className="text-red-500 mt-2">{error?.message}</p>}
           </form>
         </CardContent>
       </Card>

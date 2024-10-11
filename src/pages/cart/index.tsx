@@ -1,11 +1,10 @@
-import { CartTable } from '@/pages/cart/components/CartTable';
-import { EmptyNotice } from '@/pages/cart/components/EmptyNotice';
-import { Layout, authStatusType } from '@/pages/common/components/Layout';
-import { selectCart } from '@/store/cart/cartSelectors';
-import { useAppSelector } from '@/store/hooks';
+import { CartTable } from "@/pages/cart/components/CartTable";
+import { EmptyNotice } from "@/pages/cart/components/EmptyNotice";
+import { Layout, authStatusType } from "@/pages/common/components/Layout";
+import useCartStore from "@/store/cart/cartSlice";
 
 export const Cart = () => {
-  const cart = useAppSelector(selectCart);
+  const cart = useCartStore((state) => state.cart);
   const isExist = cart.length > 0;
 
   return (

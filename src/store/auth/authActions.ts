@@ -1,6 +1,5 @@
-import { registerUserAPI } from '@/api/auth';
-import { IUser } from '@/types/authType';
-import { createAsyncThunk } from '@reduxjs/toolkit';
+import { registerUserAPI } from "@/api/auth";
+import { IUser } from "@/types/authType";
 
 interface RegisterUserPayload {
   email: string;
@@ -8,17 +7,14 @@ interface RegisterUserPayload {
   name: string;
 }
 
-export const registerUser = createAsyncThunk<
-  IUser,
-  RegisterUserPayload,
-  { rejectValue: string }
->(
-  'auth/registerUser',
-  async ({ email, password, name }, { rejectWithValue }) => {
-    try {
-      return await registerUserAPI({ email, password, name });
-    } catch (error: any) {
-      return rejectWithValue(error.message);
-    }
-  }
-);
+export const registerUser = async (
+  payload: RegisterUserPayload
+): Promise<IUser> => {
+  const response = await registerUserAPI(payload);
+  const user: IUser = {
+    uid: response.uid,
+    email: response.email,
+    displayName: response.displayName,
+  };
+  return user;
+};
